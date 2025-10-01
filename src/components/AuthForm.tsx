@@ -75,7 +75,7 @@ export const AuthForm = ({ onSuccess }: AuthFormProps) => {
           <div className="flex justify-center mb-4">
             <div className="w-16 h-16 rounded-lg flex items-center justify-center overflow-hidden">
               <img 
-                src="/lovable-uploads/d2ad3974-e460-4312-a099-fac4fa8fcff3.png" 
+                src="/public/sfx-logoweb.png" 
                 alt="SFAXIEN SCRIPTS Logo" 
                 className="w-full h-full object-contain"
               />

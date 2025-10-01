@@ -2,13 +2,7 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
-
-interface Profile {
-  id: string;
-  username: string;
-  created_at: string;
-  updated_at: string;
-}
+import { fetchUserProfile, Profile } from '@/utils/profileUtils';
 
 interface AuthContextType {
   user: User | null;
@@ -16,6 +10,10 @@ interface AuthContextType {
   profile: Profile | null;
   loading: boolean;
   isAdmin: boolean;
+  signInWithDiscord: () => Promise<void>;
+  signInWithEmail: (email: string, password: string) => Promise<{ error: any }>;
+  signUpWithEmail: (email: string, password: string) => Promise<{ error: any }>;
+  signOut: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -24,6 +22,10 @@ const AuthContext = createContext<AuthContextType>({
   profile: null,
   loading: true,
   isAdmin: false,
+  signInWithDiscord: async () => {},
+  signInWithEmail: async () => ({ error: null }),
+  signUpWithEmail: async () => ({ error: null }),
+  signOut: async () => {},
 });
 
 export const useAuth = () => {
@@ -43,27 +45,76 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const adminEmail = 'ghorbelyessine01@gmail.com';
   const isAdmin = user?.email === adminEmail;
 
-  const fetchProfile = async (userId: string) => {
+  const handleProfileFetch = async (userId: string) => {
     try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', userId)
-        .single();
+      const profileData = await fetchUserProfile(userId);
       
-      if (error && error.code !== 'PGRST116') {
-        console.error('Error fetching profile:', error);
-        return;
+      if (profileData) {
+        setProfile(profileData);
+      } else if (user?.email) {
+        const username = user?.user_metadata?.username || 
+                        user?.user_metadata?.full_name || 
+                        user.email.split('@')[0];
+        setProfile({
+          id: userId,
+          username,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        });
       }
-      
-      setProfile(data);
     } catch (error) {
-      console.error('Error fetching profile:', error);
+      console.error('Error handling profile fetch:', error);
+      if (user?.email) {
+        const username = user?.user_metadata?.username || 
+                        user?.user_metadata?.full_name || 
+                        user.email.split('@')[0];
+        setProfile({
+          id: userId,
+          username,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        });
+      }
     }
   };
 
+  const signInWithDiscord = async () => {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'discord',
+      options: {
+        redirectTo: `${window.location.origin}/`
+      }
+    });
+    if (error) {
+      console.error('Discord login error:', error);
+      throw error;
+    }
+  };
+
+  const signInWithEmail = async (email: string, password: string) => {
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password
+    });
+    return { error };
+  };
+
+  const signUpWithEmail = async (email: string, password: string) => {
+    const { error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        emailRedirectTo: `${window.location.origin}/`
+      }
+    });
+    return { error };
+  };
+
+  const signOut = async () => {
+    await supabase.auth.signOut();
+  };
+
   useEffect(() => {
-    // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
         setSession(session);
@@ -71,7 +122,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         
         if (session?.user) {
           setTimeout(() => {
-            fetchProfile(session.user.id);
+            handleProfileFetch(session.user.id);
           }, 0);
         } else {
           setProfile(null);
@@ -80,13 +131,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       }
     );
 
-    // Check for existing session
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
       
       if (session?.user) {
-        fetchProfile(session.user.id);
+        handleProfileFetch(session.user.id);
       }
       setLoading(false);
     });
@@ -95,7 +145,17 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, session, profile, loading, isAdmin }}>
+    <AuthContext.Provider value={{ 
+      user, 
+      session, 
+      profile, 
+      loading, 
+      isAdmin, 
+      signInWithDiscord,
+      signInWithEmail,
+      signUpWithEmail,
+      signOut
+    }}>
       {children}
     </AuthContext.Provider>
   );

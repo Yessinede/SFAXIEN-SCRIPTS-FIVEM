@@ -11,7 +11,6 @@ interface HeroSectionProps {
 export const HeroSection = ({ searchQuery, setSearchQuery }: HeroSectionProps) => {
   return (
     <section className="relative bg-gradient-to-br from-black via-blue-950 to-black py-20 overflow-hidden">
-      {/* Background Pattern */}
       <div className="absolute inset-0 opacity-10">
         <div className="absolute inset-0 bg-gradient-to-r from-blue-600/20 to-transparent"></div>
       </div>
@@ -25,7 +24,6 @@ export const HeroSection = ({ searchQuery, setSearchQuery }: HeroSectionProps) =
             Premium FiveM Resources for QBCore • Custom Scripts • MLOs • Vehicles & More
           </p>
           
-          {/* Search Bar */}
           <div className="max-w-2xl mx-auto mb-12">
             <div className="relative">
               <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
@@ -41,7 +39,6 @@ export const HeroSection = ({ searchQuery, setSearchQuery }: HeroSectionProps) =
             </div>
           </div>
 
-          {/* Stats */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-3xl mx-auto">
             <div className="text-center">
               <div className="flex items-center justify-center mb-2">

@@ -1,196 +1,142 @@
 
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Menu, X, User, ShoppingCart, LogOut, Settings } from 'lucide-react';
 import { useAuth } from '@/components/AuthProvider';
-import { supabase } from '@/integrations/supabase/client';
-import { useNavigate } from 'react-router-dom';
+import { Menu, X, User } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 export const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const { user, profile, isAdmin } = useAuth();
-  const navigate = useNavigate();
+  const { user, signOut } = useAuth();
 
-  const handleNavigation = (category: string) => {
-    if (category === 'home') {
-      window.location.href = '/';
-    } else {
-      // Scroll to the ResourceGrid section and filter by category
-      const resourceSection = document.querySelector('#resources');
-      if (resourceSection) {
-        resourceSection.scrollIntoView({ behavior: 'smooth' });
-        // Trigger category filter - we'll need to implement this communication
-        const event = new CustomEvent('filterCategory', { detail: category });
-        window.dispatchEvent(event);
-      }
+  const handleLogout = async () => {
+    try {
+      await signOut();
+    } catch (error) {
+      console.error('Logout error:', error);
     }
-    setIsMenuOpen(false);
-  };
-
-  const handleSignOut = async () => {
-    await supabase.auth.signOut();
-    navigate('/');
-  };
-
-  const handleAuthClick = () => {
-    navigate('/auth');
   };
 
   return (
-    <header className="bg-black/90 backdrop-blur-sm border-b border-blue-900/20 sticky top-0 z-50">
-      <div className="container mx-auto px-4 py-4">
-        <div className="flex items-center justify-between">
-          {/* Logo */}
-          <div className="flex items-center space-x-3 cursor-pointer" onClick={() => handleNavigation('home')}>
-            <div className="w-10 h-10 rounded-lg flex items-center justify-center overflow-hidden">
-              <img 
-                src="/lovable-uploads/d2ad3974-e460-4312-a099-fac4fa8fcff3.png" 
-                alt="SFAXIEN SCRIPTS Logo" 
-                className="w-full h-full object-contain"
-              />
-            </div>
-            <div>
-              <h1 className="text-xl font-bold text-white">SFAXIEN SCRIPTS</h1>
-              <p className="text-xs text-blue-400">Premium FiveM Resources</p>
-            </div>
+    <header className="bg-black/90 backdrop-blur-sm border-b border-blue-900/30 sticky top-0 z-50">
+      <div className="container mx-auto px-4">
+        <div className="flex items-center justify-between h-16">
+          <div className="flex items-center">
+            <Link to="/" className="text-2xl font-bold text-white">
+              SFAXIEN<span className="text-blue-600">SCRIPTS</span>
+            </Link>
           </div>
 
-          {/* Desktop Navigation - Only show if not admin */}
-          {!isAdmin && (
-            <nav className="hidden md:flex items-center space-x-8">
-              <button 
-                onClick={() => handleNavigation('home')}
-                className="text-gray-300 hover:text-blue-400 transition-colors"
-              >
-                Home
-              </button>
-              <button 
-                onClick={() => handleNavigation('SCRIPTS')}
-                className="text-gray-300 hover:text-blue-400 transition-colors"
-              >
-                Scripts
-              </button>
-              <button 
-                onClick={() => handleNavigation('YMAP')}
-                className="text-gray-300 hover:text-blue-400 transition-colors"
-              >
-                YMAPs
-              </button>
-              <button 
-                onClick={() => handleNavigation('CLOTHES')}
-                className="text-gray-300 hover:text-blue-400 transition-colors"
-              >
-                Clothes
-              </button>
-            </nav>
-          )}
+          <nav className="hidden md:flex items-center space-x-8">
+            <a href="#resources" className="text-gray-300 hover:text-white transition-colors">
+              Resources
+            </a>
+            <a href="#about" className="text-gray-300 hover:text-white transition-colors">
+              About
+            </a>
+            <a href="#contact" className="text-gray-300 hover:text-white transition-colors">
+              Contact
+            </a>
+          </nav>
 
-          {/* Auth Buttons */}
           <div className="hidden md:flex items-center space-x-4">
             {user ? (
               <div className="flex items-center space-x-4">
                 <span className="text-gray-300">
-                  {isAdmin ? 'Admin Panel' : `Welcome, ${profile?.username || user.email}`}
+                  Welcome, {user.email}
                 </span>
-                <Button 
-                  variant="ghost" 
-                  className="text-white hover:text-blue-400"
-                  onClick={handleSignOut}
+                <Link to="/profile">
+                  <Button className="bg-gradient-to-r from-blue-600 to-blue-800 hover:from-blue-700 hover:to-blue-900">
+                    <User className="h-4 w-4 mr-2" />
+                    Profile
+                  </Button>
+                </Link>
+                <Button
+                  onClick={handleLogout}
+                  className="bg-gradient-to-r from-blue-600 to-blue-800 hover:from-blue-700 hover:to-blue-900"
                 >
-                  <LogOut className="w-4 h-4 mr-2" />
-                  Sign Out
+                  Logout
                 </Button>
               </div>
             ) : (
-              <>
-                <Button 
-                  variant="ghost" 
-                  className="text-white hover:text-blue-400"
-                  onClick={handleAuthClick}
-                >
-                  <User className="w-4 h-4 mr-2" />
+              <Link to="/auth">
+                <Button className="bg-gradient-to-r from-blue-600 to-blue-800 hover:from-blue-700 hover:to-blue-900">
                   Login
                 </Button>
-                <Button className="bg-gradient-to-r from-blue-600 to-blue-800 hover:from-blue-700 hover:to-blue-900">
-                  <ShoppingCart className="w-4 h-4 mr-2" />
-                  Cart
-                </Button>
-              </>
+              </Link>
             )}
           </div>
 
-          {/* Mobile Menu Button */}
-          <button 
-            className="md:hidden text-white"
-            onClick={() => setIsMenuOpen(!isMenuOpen)}
-          >
-            {isMenuOpen ? <X /> : <Menu />}
-          </button>
+          <div className="md:hidden">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setIsMenuOpen(!isMenuOpen)}
+              className="text-white"
+            >
+              {isMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+            </Button>
+          </div>
         </div>
 
-        {/* Mobile Menu */}
         {isMenuOpen && (
-          <div className="md:hidden mt-4 pb-4 border-t border-blue-900/20">
-            {!isAdmin && (
-              <nav className="flex flex-col space-y-3 mt-4">
-                <button 
-                  onClick={() => handleNavigation('home')}
-                  className="text-gray-300 hover:text-blue-400 transition-colors text-left"
-                >
-                  Home
-                </button>
-                <button 
-                  onClick={() => handleNavigation('SCRIPTS')}
-                  className="text-gray-300 hover:text-blue-400 transition-colors text-left"
-                >
-                  Scripts
-                </button>
-                <button 
-                  onClick={() => handleNavigation('YMAP')}
-                  className="text-gray-300 hover:text-blue-400 transition-colors text-left"
-                >
-                  YMAPs
-                </button>
-                <button 
-                  onClick={() => handleNavigation('CLOTHES')}
-                  className="text-gray-300 hover:text-blue-400 transition-colors text-left"
-                >
-                  Clothes
-                </button>
-              </nav>
-            )}
-            
-            <div className="flex flex-col space-y-2 mt-4">
-              {user ? (
-                <>
-                  <span className="text-gray-300 text-sm">
-                    {isAdmin ? 'Admin Panel' : `Welcome, ${profile?.username || user.email}`}
-                  </span>
-                  <Button 
-                    variant="ghost" 
-                    className="text-white hover:text-blue-400 justify-start"
-                    onClick={handleSignOut}
-                  >
-                    <LogOut className="w-4 h-4 mr-2" />
-                    Sign Out
-                  </Button>
-                </>
-              ) : (
-                <>
-                  <Button 
-                    variant="ghost" 
-                    className="text-white hover:text-blue-400 justify-start"
-                    onClick={handleAuthClick}
-                  >
-                    <User className="w-4 h-4 mr-2" />
-                    Login
-                  </Button>
-                  <Button className="bg-gradient-to-r from-blue-600 to-blue-800 justify-start">
-                    <ShoppingCart className="w-4 h-4 mr-2" />
-                    Cart
-                  </Button>
-                </>
-              )}
+          <div className="md:hidden">
+            <div className="px-2 pt-2 pb-3 space-y-1 bg-black/95 border-t border-blue-900/30">
+              <a
+                href="#resources"
+                className="block px-3 py-2 text-gray-300 hover:text-white transition-colors"
+                onClick={() => setIsMenuOpen(false)}
+              >
+                Resources
+              </a>
+              <a
+                href="#about"
+                className="block px-3 py-2 text-gray-300 hover:text-white transition-colors"
+                onClick={() => setIsMenuOpen(false)}
+              >
+                About
+              </a>
+              <a
+                href="#contact"
+                className="block px-3 py-2 text-gray-300 hover:text-white transition-colors"
+                onClick={() => setIsMenuOpen(false)}
+              >
+                Contact
+              </a>
+              <div className="px-3 py-2 border-t border-gray-700 mt-2">
+                {user ? (
+                  <div className="space-y-2">
+                    <p className="text-gray-300 text-sm">
+                      Welcome, {user.email}
+                    </p>
+                    <Link to="/profile" onClick={() => setIsMenuOpen(false)}>
+                      <Button
+                        size="sm"
+                        className="w-full bg-gradient-to-r from-blue-600 to-blue-800 hover:from-blue-700 hover:to-blue-900"
+                      >
+                        <User className="h-4 w-4 mr-2" />
+                        Profile
+                      </Button>
+                    </Link>
+                    <Button
+                      onClick={handleLogout}
+                      size="sm"
+                      className="w-full bg-gradient-to-r from-blue-600 to-blue-800 hover:from-blue-700 hover:to-blue-900"
+                    >
+                      Logout
+                    </Button>
+                  </div>
+                ) : (
+                  <Link to="/auth" onClick={() => setIsMenuOpen(false)}>
+                    <Button
+                      size="sm"
+                      className="w-full bg-gradient-to-r from-blue-600 to-blue-800 hover:from-blue-700 hover:to-blue-900"
+                    >
+                      Login
+                    </Button>
+                  </Link>
+                )}
+              </div>
             </div>
           </div>
         )}

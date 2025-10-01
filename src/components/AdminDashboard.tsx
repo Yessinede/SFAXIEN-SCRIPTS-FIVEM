@@ -15,20 +15,22 @@ import { useAuth } from '@/components/AuthProvider';
 export const AdminDashboard = () => {
   const [categories, setCategories] = useState<any[]>([]);
   const [scripts, setScripts] = useState<any[]>([]);
+  const [ads, setAds] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const { toast } = useToast();
   const { profile } = useAuth();
 
-  // Form state
   const [scriptName, setScriptName] = useState('');
   const [description, setDescription] = useState('');
   const [price, setPrice] = useState('0');
   const [selectedCategory, setSelectedCategory] = useState('');
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [scriptFile, setScriptFile] = useState<File | null>(null);
+  
+  const [adTitle, setAdTitle] = useState('');
+  const [adContent, setAdContent] = useState('');
 
-  // Required categories
   const requiredCategories = [
     { name: 'SCRIPTS', description: 'FiveM Scripts and Resources' },
     { name: 'CLOTHES', description: 'FiveM Clothing and Accessories' },
@@ -64,16 +66,19 @@ export const AdminDashboard = () => {
 
   const fetchData = async () => {
     try {
-      const [categoriesRes, scriptsRes] = await Promise.all([
+      const [categoriesRes, scriptsRes, adsRes] = await Promise.all([
         supabase.from('categories').select('*').in('name', requiredCategories.map(c => c.name)).order('name'),
-        supabase.from('scripts').select('*, categories(name)').order('created_at', { ascending: false })
+        supabase.from('scripts').select('*, categories(name)').order('created_at', { ascending: false }),
+        supabase.from('ads').select('*').order('created_at', { ascending: false })
       ]);
 
       if (categoriesRes.error) throw categoriesRes.error;
       if (scriptsRes.error) throw scriptsRes.error;
+      if (adsRes.error) throw adsRes.error;
 
       setCategories(categoriesRes.data || []);
       setScripts(scriptsRes.data || []);
+      setAds(adsRes.data || []);
     } catch (error: any) {
       toast({
         variant: "destructive",
@@ -101,7 +106,6 @@ export const AdminDashboard = () => {
       let imageUrl = '';
       let fileUrl = '';
 
-      // Upload image if provided
       if (imageFile) {
         const imageExt = imageFile.name.split('.').pop();
         const imageName = `${Date.now()}_image.${imageExt}`;
@@ -111,14 +115,12 @@ export const AdminDashboard = () => {
 
         if (imageError) throw imageError;
         
-        // Get public URL for the uploaded image
         const { data: imageUrlData } = supabase.storage
           .from('script-assets')
           .getPublicUrl(imageName);
         imageUrl = imageUrlData.publicUrl;
       }
 
-      // Upload script file
       const fileExt = scriptFile.name.split('.').pop();
       const fileName = `${Date.now()}_script.${fileExt}`;
       const { error: fileError, data: fileData } = await supabase.storage
@@ -127,13 +129,11 @@ export const AdminDashboard = () => {
 
       if (fileError) throw fileError;
       
-      // Get public URL for the uploaded file
       const { data: fileUrlData } = supabase.storage
         .from('script-assets')
         .getPublicUrl(fileName);
       fileUrl = fileUrlData.publicUrl;
 
-      // Insert script record
       const { error: insertError } = await supabase
         .from('scripts')
         .insert({
@@ -147,12 +147,23 @@ export const AdminDashboard = () => {
 
       if (insertError) throw insertError;
 
+      try {
+        const { error: notificationError } = await supabase.functions.invoke('notify-new-release', {
+          body: { scriptName }
+        });
+        
+        if (notificationError) {
+          console.error('Notification error:', notificationError);
+        }
+      } catch (notificationError) {
+        console.error('Failed to send notifications:', notificationError);
+      }
+
       toast({
         title: "Success",
-        description: "Script uploaded successfully!"
+        description: "Script uploaded successfully! Discord notifications sent to users."
       });
 
-      // Reset form
       setScriptName('');
       setDescription('');
       setPrice('0');
@@ -160,7 +171,6 @@ export const AdminDashboard = () => {
       setImageFile(null);
       setScriptFile(null);
       
-      // Reset file inputs
       const imageInput = document.getElementById('image') as HTMLInputElement;
       const scriptInput = document.getElementById('script') as HTMLInputElement;
       if (imageInput) imageInput.value = '';
@@ -206,6 +216,99 @@ export const AdminDashboard = () => {
     }
   };
 
+  const handleAdSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!adTitle || !adContent) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Please fill in all required fields"
+      });
+      return;
+    }
+
+    setUploading(true);
+    try {
+      const { error } = await supabase
+        .from('ads')
+        .insert({
+          title: adTitle,
+          content: adContent
+        });
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: "Ad created successfully!"
+      });
+
+      setAdTitle('');
+      setAdContent('');
+      fetchData();
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error.message
+      });
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleDeleteAd = async (adId: string, adTitle: string) => {
+    if (!confirm(`Are you sure you want to delete "${adTitle}"? This action cannot be undone.`)) {
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('ads')
+        .delete()
+        .eq('id', adId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: `Ad "${adTitle}" deleted successfully`
+      });
+
+      fetchData();
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error.message
+      });
+    }
+  };
+
+  const toggleAdStatus = async (adId: string, currentStatus: boolean) => {
+    try {
+      const { error } = await supabase
+        .from('ads')
+        .update({ is_active: !currentStatus })
+        .eq('id', adId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: `Ad ${!currentStatus ? 'activated' : 'deactivated'} successfully`
+      });
+
+      fetchData();
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error.message
+      });
+    }
+  };
+
   if (loading) {
     return (
       <div className="container mx-auto px-4 py-8">
@@ -226,8 +329,7 @@ export const AdminDashboard = () => {
         )}
       </div>
       
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Upload Form */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
         <Card className="bg-gray-900 border-blue-800/50">
           <CardHeader>
             <CardTitle className="text-white">Upload New Script</CardTitle>
@@ -325,7 +427,6 @@ export const AdminDashboard = () => {
           </CardContent>
         </Card>
 
-        {/* Scripts List */}
         <Card className="bg-gray-900 border-blue-800/50">
           <CardHeader>
             <CardTitle className="text-white">Your Scripts ({scripts.length})</CardTitle>
@@ -371,6 +472,109 @@ export const AdminDashboard = () => {
               ))}
               {scripts.length === 0 && (
                 <p className="text-gray-400 text-center py-8">No scripts uploaded yet</p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <Card className="bg-gray-900 border-blue-800/50">
+          <CardHeader>
+            <CardTitle className="text-white">Create New Ad</CardTitle>
+            <CardDescription className="text-gray-400">
+              Add a new advertisement to display on the main page
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleAdSubmit} className="space-y-4">
+              <div>
+                <Label htmlFor="adTitle" className="text-white">Ad Title</Label>
+                <Input
+                  id="adTitle"
+                  value={adTitle}
+                  onChange={(e) => setAdTitle(e.target.value)}
+                  className="bg-black border-blue-800/50 text-white"
+                  required
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="adContent" className="text-white">Ad Content</Label>
+                <Textarea
+                  id="adContent"
+                  value={adContent}
+                  onChange={(e) => setAdContent(e.target.value)}
+                  className="bg-black border-blue-800/50 text-white"
+                  rows={4}
+                  required
+                />
+              </div>
+
+              <Button
+                type="submit"
+                disabled={uploading}
+                className="w-full bg-gradient-to-r from-green-600 to-green-800 hover:from-green-700 hover:to-green-900"
+              >
+                {uploading ? 'Creating...' : 'Create Ad'}
+                <Plus className="w-4 h-4 ml-2" />
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-gray-900 border-blue-800/50">
+          <CardHeader>
+            <CardTitle className="text-white">Your Ads ({ads.length})</CardTitle>
+            <CardDescription className="text-gray-400">
+              Manage your advertisements
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4 max-h-96 overflow-y-auto">
+              {ads.map((ad) => (
+                <div key={ad.id} className="bg-black p-4 rounded-lg border border-gray-800">
+                  <div className="flex justify-between items-start">
+                    <div className="flex-1">
+                      <h3 className="font-semibold text-white">{ad.title}</h3>
+                      <p className="text-gray-400 text-sm mb-2">{ad.content}</p>
+                      <div className="flex items-center gap-4 text-sm">
+                        <span className={`px-2 py-1 rounded text-xs ${
+                          ad.is_active ? 'bg-green-900 text-green-300' : 'bg-red-900 text-red-300'
+                        }`}>
+                          {ad.is_active ? 'Active' : 'Inactive'}
+                        </span>
+                        <span className="text-gray-400">
+                          {new Date(ad.created_at).toLocaleDateString()}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => toggleAdStatus(ad.id, ad.is_active)}
+                        className={ad.is_active ? 
+                          "text-yellow-400 hover:text-yellow-300 hover:bg-yellow-900/20" : 
+                          "text-green-400 hover:text-green-300 hover:bg-green-900/20"
+                        }
+                      >
+                        {ad.is_active ? <X className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleDeleteAd(ad.id, ad.title)}
+                        className="text-red-400 hover:text-red-300 hover:bg-red-900/20"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+              {ads.length === 0 && (
+                <p className="text-gray-400 text-center py-8">No ads created yet</p>
               )}
             </div>
           </CardContent>

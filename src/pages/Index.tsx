@@ -6,6 +6,7 @@ import { FeaturedResources } from '@/components/FeaturedResources';
 import { ResourceGrid } from '@/components/ResourceGrid';
 import { AdminDashboard } from '@/components/AdminDashboard';
 import { Footer } from '@/components/Footer';
+import { AdsBanner } from '@/components/AdsBanner';
 import { useState } from 'react';
 
 const Index = () => {
@@ -30,6 +31,7 @@ const Index = () => {
             searchQuery={searchQuery} 
             setSearchQuery={setSearchQuery}
           />
+          <AdsBanner />
           <FeaturedResources />
           <ResourceGrid 
             searchQuery={searchQuery}
